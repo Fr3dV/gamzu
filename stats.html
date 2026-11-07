@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>gamzu.fr · statistiques</title>
+<style>
+  body { margin: 0; background: #0B1220; color: #E6EDF5; font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; } h2 { font-size: 17px; margin: 32px 0 10px; color: #F5A524; }
+  p.sub { margin: 0 0 24px; color: #8A97A8; font-size: 14px; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  input, select, button { font: inherit; padding: 8px 10px; border-radius: 4px; border: 1px solid #1E2A3D; background: #111A2B; color: inherit; }
+  button { background: #F5A524; color: #0B1220; border: 0; font-weight: 600; cursor: pointer; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .kpi { background: #111A2B; border: 1px solid #1E2A3D; border-radius: 6px; padding: 14px; }
+  .kpi b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; } .kpi span { color: #8A97A8; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid #1E2A3D; text-align: right; }
+  th:first-child, td:first-child { text-align: left; } th { color: #8A97A8; font-weight: 500; }
+  .bar { display: inline-block; height: 8px; background: #F5A524; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .err { color: #d9432f; }
+</style>
+</head>
+<body>
+<main>
+<h1>Statistiques gamzu.fr</h1>
+<p class="sub">Compteurs anonymes : aucun cookie, aucune IP ni pseudo enregistrés.</p>
+<form id="f">
+  <input id="jeton" type="password" placeholder="Jeton d'accès" autocomplete="current-password" required>
+  <select id="jours"><option value="7">7 derniers jours</option><option value="30" selected>30 derniers jours</option><option value="90">90 derniers jours</option></select>
+  <button>Afficher</button>
+</form>
+<div id="out"></div>
+</main>
+<script src="scores.js"></script>
+<script>
+  var NOMS = { portail: 'Portail', fz: 'Front Zéro', gxf: 'Guerre X Force', tf: 'Terraforme', cnt: 'Chasse-Neige Tycoon', lgc: 'La Grande Chasse' };
+  var f = document.getElementById('f'), jeton = document.getElementById('jeton'), out = document.getElementById('out');
+  jeton.value = localStorage.getItem('gamzu_stats_jeton') || '';
+  var n = function (x) { return Number(x || 0).toLocaleString('fr-FR'); };
+  var duree = function (s) { s = Math.round(s); return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min ' + String(s % 60).padStart(2, '0'); };
+
+  function afficher(jours) {
+    var t = {}; // totaux par site
+    Object.keys(NOMS).forEach(function (k) { t[k] = { visite: 0, partie: 0, fin: 0, duree: 0, scores: 0 }; });
+    jours.forEach(function (j) { Object.keys(j).forEach(function (cle) {
+      var m = cle.match(/^([a-z]+)_(visite|partie|fin|duree|scores)$/);
+      if (m && t[m[1]]) t[m[1]][m[2]] += j[cle];
+    }); });
+    var tot = { visite: 0, partie: 0, fin: 0, duree: 0, scores: 0 };
+    Object.values(t).forEach(function (s) { for (var k in tot) tot[k] += s[k]; });
+
+    var h = '<div class="kpis">' +
+      '<div class="kpi"><b>' + n(tot.visite) + '</b><span>visites</span></div>' +
+      '<div class="kpi"><b>' + n(tot.partie) + '</b><span>parties lancées</span></div>' +
+      '<div class="kpi"><b>' + n(tot.scores) + '</b><span>scores envoyés</span></div>' +
+      '<div class="kpi"><b>' + (tot.fin ? duree(tot.duree / tot.fin) : '–') + '</b><span>durée moyenne d’une partie</span></div></div>';
+
+    h += '<h2>Par jeu</h2><table><tr><th>Site</th><th>Visites</th><th>Parties</th><th>Scores</th><th>Durée moy.</th></tr>';
+    var maxV = Math.max(1, ...Object.values(t).map(function (s) { return s.visite; }));
+    Object.keys(NOMS).forEach(function (k) { var s = t[k];
+      h += '<tr><td>' + NOMS[k] + '</td><td><span class="bar" style="width:' + Math.round(60 * s.visite / maxV) + 'px"></span>' + n(s.visite) +
+        '</td><td>' + n(s.partie) + '</td><td>' + n(s.scores) + '</td><td>' + (s.fin ? duree(s.duree / s.fin) : '–') + '</td></tr>';
+    });
+    h += '</table>';
+
+    h += '<h2>Par jour</h2><table><tr><th>Jour</th><th>Visites</th><th>Parties</th><th>Scores</th></tr>';
+    var maxJ = Math.max(1, ...jours.map(function (j) { return somme(j, 'visite'); }));
+    jours.slice().reverse().forEach(function (j) {
+      var v = somme(j, 'visite');
+      h += '<tr><td>' + new Date(j.jour + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) +
+        '</td><td><span class="bar" style="width:' + Math.round(120 * v / maxJ) + 'px"></span>' + n(v) +
+        '</td><td>' + n(somme(j, 'partie')) + '</td><td>' + n(somme(j, 'scores')) + '</td></tr>';
+    });
+    if (!jours.length) h += '<tr><td colspan="4">Aucune donnée sur la période.</td></tr>';
+    out.innerHTML = h + '</table>';
+  }
+  function somme(j, type) { var s = 0; for (var k in j) if (k.endsWith('_' + type)) s += j[k]; return s; }
+
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    localStorage.setItem('gamzu_stats_jeton', jeton.value);
+    out.textContent = 'Chargement…';
+    fetch(Gamzu.API + '/stats?jours=' + document.getElementById('jours').value, { headers: { Authorization: 'Bearer ' + jeton.value }, cache: 'no-store' })
+      .then(function (r) { return r.json().then(function (b) { if (!r.ok) throw new Error(b.erreur || r.status); return b; }); })
+      .then(function (b) { afficher(b.jours); })
+      .catch(function (err) { out.innerHTML = '<p class="err">' + String(err.message).replace(/</g, '&lt;') + '</p>'; });
+  });
+  if (jeton.value) f.requestSubmit();
+</script>
+</body>
+</html>

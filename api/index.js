@@ -3,8 +3,13 @@
 //   POST /scores {jeu, nom, score, detail?} → enregistre, renvoie rang et meilleur score
 // Stockage : jeux/{jeu}/joueurs/{nom en minuscules} = {nom, score, detail, parties, date}
 // detail : court texte affiché à côté du score (palier atteint dans Terraforme).
+//
+// Mesure d'audience anonyme (aucun cookie, aucune IP ni pseudo enregistrés : que des compteurs) :
+//   POST /evt {type, jeu, duree?}   type = visite | partie | fin (duree en secondes, avec fin)
+//   GET  /stats?jours=30            → compteurs par jour (en-tête Authorization: Bearer STATS_TOKEN)
+// Stockage : stats/{AAAA-MM-JJ, heure de Paris} = {fz_visite: 12, fz_partie: 8, fz_fin: 6, fz_duree: 1840, fz_scores: 5, …}
 const http = require('http');
-const { Firestore, FieldValue } = require('@google-cloud/firestore');
+const { Firestore, FieldValue, FieldPath } = require('@google-cloud/firestore');
 
 const db = new Firestore();
 
@@ -16,6 +21,11 @@ const JEUX = {
   cnt: { nom: 'Chasse-Neige Tycoon', max: 500_000_000 }, // total d'euros gagnés
   lgc: { nom: 'La Grande Chasse', max: 100_000_000 },    // total d'argent gagné
 };
+
+// Sites suivis par la mesure d'audience (portail = gamzu.fr).
+const SITES = new Set(['portail', 'fz', 'gxf', 'tf', 'cnt', 'lgc']);
+const TYPES = new Set(['visite', 'partie', 'fin']);
+const DUREE_MAX = 3 * 3600; // une durée plus longue est un onglet oublié : ignorée
 
 const ORIGINES = /^https:\/\/([a-z0-9-]+\.)?gamzu\.fr$|^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
@@ -29,6 +39,33 @@ function tropDEnvois(ip) {
   envois.set(ip, liste);
   if (envois.size > 5000) for (const [k, v] of envois) if (now - v[v.length - 1] > FENETRE_MS) envois.delete(k);
   return liste.length > MAX_ENVOIS;
+}
+
+// Limite plus large pour les événements d'audience (une page en envoie plusieurs).
+const MAX_EVTS = 120;
+const evts = new Map();
+function tropDEvts(ip) {
+  const now = Date.now();
+  const liste = (evts.get(ip) || []).filter(t => now - t < FENETRE_MS);
+  liste.push(now);
+  evts.set(ip, liste);
+  if (evts.size > 5000) for (const [k, v] of evts) if (now - v[v.length - 1] > FENETRE_MS) evts.delete(k);
+  return liste.length > MAX_EVTS;
+}
+
+const jourParis = (d = new Date()) => d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }); // AAAA-MM-JJ
+// Incrémente des compteurs du jour : { fz_visite: 1 } → stats/2026-11-07.fz_visite += 1
+function compter(compteurs) {
+  const maj = {};
+  for (const [k, v] of Object.entries(compteurs)) maj[k] = FieldValue.increment(v);
+  return db.collection('stats').doc(jourParis()).set(maj, { merge: true });
+}
+
+async function lireStats(jours) {
+  const debut = new Date(Date.now() - (jours - 1) * 86400000);
+  const snap = await db.collection('stats')
+    .where(FieldPath.documentId(), '>=', jourParis(debut)).get();
+  return snap.docs.map(d => ({ jour: d.id, ...d.data() })).sort((a, b) => a.jour.localeCompare(b.jour));
 }
 
 function nettoyerNom(n) {
@@ -78,6 +115,7 @@ async function enregistrer(jeu, nom, score, detail) {
     return { meilleur: avant, record: false };
   });
   if (record) cache.delete(jeu); // le joueur voit son score tout de suite
+  compter({ [jeu + '_scores']: 1 }).catch(e => console.error('stats', e));
   const [devant, total] = await Promise.all([
     joueurs(jeu).where('score', '>', meilleur).count().get(),
     joueurs(jeu).count().get(),
@@ -105,7 +143,7 @@ http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', origine);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Max-Age', '86400');
   }
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
@@ -130,6 +168,29 @@ http.createServer(async (req, res) => {
       if (!nom || !cleValide(cleNom(nom))) return repondre(res, 400, { erreur: 'pseudo invalide (2 à 16 caractères)' });
       if (!Number.isInteger(score) || score < 0 || score > JEUX[jeu].max) return repondre(res, 400, { erreur: 'score invalide' });
       return repondre(res, 200, { jeu, nom, ...(await enregistrer(jeu, nom, score, detail)) });
+    }
+    if (url.pathname === '/evt' && req.method === 'POST') {
+      if (!origine || !ORIGINES.test(origine)) return repondre(res, 403, { erreur: 'origine refusée' });
+      const ip = (req.headers['x-forwarded-for'] || '').split(',').pop().trim() || req.socket.remoteAddress;
+      if (tropDEvts(ip)) return repondre(res, 429, { erreur: 'trop d’événements' });
+      const b = await lireCorps(req);
+      if (!SITES.has(b.jeu) || !TYPES.has(b.type)) return repondre(res, 400, { erreur: 'événement invalide' });
+      const c = { [b.jeu + '_' + b.type]: 1 };
+      if (b.type === 'fin') {
+        const duree = Math.round(b.duree);
+        if (!(duree > 0 && duree <= DUREE_MAX)) return repondre(res, 400, { erreur: 'durée invalide' });
+        c[b.jeu + '_duree'] = duree;
+      }
+      await compter(c);
+      res.writeHead(204); return res.end();
+    }
+    if (url.pathname === '/stats' && req.method === 'GET') {
+      const jeton = process.env.STATS_TOKEN;
+      if (!jeton) return repondre(res, 503, { erreur: 'STATS_TOKEN non configuré' });
+      if ((req.headers.authorization || '') !== 'Bearer ' + jeton) return repondre(res, 401, { erreur: 'accès refusé' });
+      const jours = Math.min(366, Math.max(1, parseInt(url.searchParams.get('jours'), 10) || 30));
+      res.setHeader('Cache-Control', 'no-store');
+      return repondre(res, 200, { jours: await lireStats(jours) });
     }
     if (url.pathname === '/') return repondre(res, 200, { ok: true, jeux: Object.keys(JEUX) });
     repondre(res, 404, { erreur: 'introuvable' });
