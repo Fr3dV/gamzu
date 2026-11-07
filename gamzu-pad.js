@@ -28,7 +28,7 @@
   var prec = {};           // état précédent des boutons
   var tenus = {};          // codes clavier actuellement simulés
   var nav = { dir: null, t: 0, rep: false };
-  var focus = null, focusPos = null, dernierMenu = null, aideVue = false, boucle = false, selectT = 0;
+  var focus = null, focusPos = null, dernierMenu = null, menuDepuis = 0, aideVue = false, boucle = false, selectT = 0;
   var axes = { lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 };
   var api = { axes: axes, actif: false, init: init, vibrer: vibrer };
   window.GamzuPad = api;
@@ -109,13 +109,14 @@
     else selectT = 0;
     var menuGz = gm && gm.element;
     var menu = menuGz || (opts.menu ? opts.menu() : null);
-    if (menu !== dernierMenu) { toutRelacher(); dernierMenu = menu; focusPos = null; poserFocus(menu ? premier(menu) : null); }
+    if (menu !== dernierMenu) { toutRelacher(); dernierMenu = menu; menuDepuis = now; focusPos = null; poserFocus(menu ? premier(menu) : null); }
     else if (menu && focus && !focus.isConnected) poserFocus(proche(menu)); // le menu a été redessiné
 
     for (var n in appuis) {
       var bas = appuis[n];
       if (menu && (menuGz || opts.toujours.indexOf(n) < 0)) {
         if (!bas) continue;
+        if ((n === 'A' || n === 'START') && now - menuDepuis < 400) continue; // menu tout juste apparu : pas de validation par accident
         if (n === 'A' || n === 'START') { if (!focus || !valide(focus, menu)) poserFocus(premier(menu)); if (focus && !focus.disabled) focus.click(); }
         else if (n === 'B') {
           if (menuGz) gm.fermer();
