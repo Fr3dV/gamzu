@@ -40,12 +40,27 @@ function nettoyerDetail(d) {
   return d || null;
 }
 const cleNom = n => n.toLowerCase().replace(/[\/\s.]/g, '_');
+// Firestore réserve les identifiants de la forme __xxx__.
+const cleValide = c => !/^__.*__$/.test(c);
 
 const joueurs = jeu => db.collection('jeux').doc(jeu).collection('joueurs');
 
-async function top(jeu, n) {
-  const snap = await joueurs(jeu).orderBy('score', 'desc').limit(n).get();
+// Top 50 gardé en mémoire par jeu : au plus une requête Firestore toutes les CACHE_MS
+// par instance, quel que soit le trafic. Les requêtes simultanées partagent la même lecture.
+const TOP_MAX = 50, CACHE_MS = 15 * 1000;
+const cache = new Map(); // jeu → { t, promesse }
+async function lireTop(jeu) {
+  const snap = await joueurs(jeu).orderBy('score', 'desc').limit(TOP_MAX).get();
   return snap.docs.map(d => { const x = d.data(); return { nom: x.nom, score: x.score, detail: x.detail || null, date: x.date.toDate().toISOString() }; });
+}
+async function top(jeu, n) {
+  let c = cache.get(jeu);
+  if (!c || Date.now() - c.t > CACHE_MS) {
+    c = { t: Date.now(), promesse: lireTop(jeu) };
+    cache.set(jeu, c);
+    c.promesse.catch(() => { if (cache.get(jeu) === c) cache.delete(jeu); });
+  }
+  return (await c.promesse).slice(0, n);
 }
 
 async function enregistrer(jeu, nom, score, detail) {
@@ -60,6 +75,7 @@ async function enregistrer(jeu, nom, score, detail) {
     tx.update(ref, { parties: FieldValue.increment(1) });
     return { meilleur: avant, record: false };
   });
+  if (record) cache.delete(jeu); // le joueur voit son score tout de suite
   const [devant, total] = await Promise.all([
     joueurs(jeu).where('score', '>', meilleur).count().get(),
     joueurs(jeu).count().get(),
@@ -97,18 +113,19 @@ http.createServer(async (req, res) => {
     if (url.pathname === '/scores' && req.method === 'GET') {
       const jeu = url.searchParams.get('jeu');
       if (!JEUX[jeu]) return repondre(res, 400, { erreur: 'jeu inconnu' });
-      const n = Math.min(50, Math.max(1, parseInt(url.searchParams.get('n'), 10) || 10));
+      const n = Math.min(TOP_MAX, Math.max(1, parseInt(url.searchParams.get('n'), 10) || 10));
       res.setHeader('Cache-Control', 'public, max-age=15');
       return repondre(res, 200, { jeu, scores: await top(jeu, n) });
     }
     if (url.pathname === '/scores' && req.method === 'POST') {
       if (!origine || !ORIGINES.test(origine)) return repondre(res, 403, { erreur: 'origine refusée' });
-      const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
+      // Cloud Run ajoute l'IP réelle en DERNIÈRE position ; les entrées précédentes viennent du client.
+      const ip = (req.headers['x-forwarded-for'] || '').split(',').pop().trim() || req.socket.remoteAddress;
       if (tropDEnvois(ip)) return repondre(res, 429, { erreur: 'trop d’envois, réessaie plus tard' });
       const b = await lireCorps(req);
       const jeu = b.jeu, nom = nettoyerNom(b.nom), score = b.score, detail = nettoyerDetail(b.detail);
       if (!JEUX[jeu]) return repondre(res, 400, { erreur: 'jeu inconnu' });
-      if (!nom) return repondre(res, 400, { erreur: 'pseudo invalide (2 à 16 caractères)' });
+      if (!nom || !cleValide(cleNom(nom))) return repondre(res, 400, { erreur: 'pseudo invalide (2 à 16 caractères)' });
       if (!Number.isInteger(score) || score < 0 || score > JEUX[jeu].max) return repondre(res, 400, { erreur: 'score invalide' });
       return repondre(res, 200, { jeu, nom, ...(await enregistrer(jeu, nom, score, detail)) });
     }
