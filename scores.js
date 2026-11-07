@@ -46,13 +46,14 @@
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
   function fmt(x) { return Number(x).toLocaleString('fr-FR'); }
 
+  // Couleurs dérivées de currentColor : lisible sur fond clair comme sombre.
   var CSS = '.gz-p{font:14px/1.4 system-ui,sans-serif;color:inherit;text-align:left;margin:14px 0;max-width:420px}' +
     '.gz-p h4{margin:0 0 8px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75}' +
-    '.gz-f{display:flex;gap:6px;margin-bottom:8px}.gz-f input{flex:1;min-width:0;padding:7px 9px;border-radius:4px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.35);color:inherit;font:inherit}' +
+    '.gz-f{display:flex;gap:6px;margin-bottom:8px}.gz-f input{flex:1;min-width:0;padding:7px 9px;border-radius:4px;border:1px solid color-mix(in srgb,currentColor 35%,transparent);background:color-mix(in srgb,currentColor 6%,transparent);color:inherit;font:inherit}' +
     '.gz-f button{padding:7px 12px;border-radius:4px;border:0;background:#F5A524;color:#0B1220;font:inherit;font-weight:600;cursor:pointer}' +
-    '.gz-m{margin:6px 0;font-size:13px}.gz-m.err{color:#ff8a7a}' +
-    '.gz-t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.gz-t td{padding:3px 6px;border-top:1px solid rgba(255,255,255,.1)}' +
-    '.gz-t td:first-child{width:2.2em;opacity:.6}.gz-t td:last-child{text-align:right}.gz-t tr.moi td{color:#F5A524;font-weight:600}';
+    '.gz-m{margin:6px 0;font-size:13px}.gz-m.err{color:#d9432f}' +
+    '.gz-t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.gz-t td{padding:3px 6px;border-top:1px solid color-mix(in srgb,currentColor 15%,transparent)}' +
+    '.gz-t td:first-child{width:2.2em;opacity:.6}.gz-t td:last-child{text-align:right}.gz-t tr.moi td{background:rgba(245,165,36,.22);font-weight:700}';
   function styles() {
     if (document.getElementById('gz-css')) return;
     var s = document.createElement('style'); s.id = 'gz-css'; s.textContent = CSS; document.head.appendChild(s);
