@@ -156,6 +156,8 @@
     if (!el || !el.isConnected || !menu.contains(el) || el.getAttribute('data-pad') === 'non') return false;
     var r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) return false;
+    // checkVisibility écarte aussi le contenu d’un <details> fermé, que getBoundingClientRect laisse passer
+    if (el.checkVisibility) return el.checkVisibility({ visibilityProperty: true, checkVisibilityCSS: true });
     var s = getComputedStyle(el);
     return s.visibility !== 'hidden' && s.display !== 'none';
   }
