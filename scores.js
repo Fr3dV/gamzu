@@ -4,9 +4,10 @@
  *
  *   Gamzu.nom()                      → pseudo enregistré ou null
  *   Gamzu.setNom(n)                  → enregistre le pseudo
- *   Gamzu.envoyer(jeu, score)        → Promise {rang, total, meilleur, record}
- *   Gamzu.top(jeu, n, frais)         → Promise [{nom, score, date}] (frais : sans cache)
- *   Gamzu.panneau(el, jeu, score)    → affiche dans el : saisie du pseudo, envoi, top 10
+ *   Gamzu.envoyer(jeu, score, pseudo, detail) → Promise {rang, total, meilleur, record}
+ *   Gamzu.top(jeu, n, frais)         → Promise [{nom, score, detail, date}] (frais : sans cache)
+ *   Gamzu.panneau(el, jeu, score, detail) → affiche dans el : saisie du pseudo, envoi, top 10
+ *   (detail : court texte affiché à côté du score, ex. le palier atteint)
  */
 (function () {
   var API = 'https://gamzu-scores-240503224375.europe-west1.run.app';
@@ -32,10 +33,10 @@
   function json(r) {
     return r.json().then(function (b) { if (!r.ok) throw new Error(b.erreur || 'erreur ' + r.status); return b; });
   }
-  function envoyer(jeu, score, pseudo) {
+  function envoyer(jeu, score, pseudo, detail) {
     return fetch(API + '/scores', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jeu: jeu, nom: pseudo || nom(), score: Math.round(score) })
+      body: JSON.stringify({ jeu: jeu, nom: pseudo || nom(), score: Math.round(score), detail: detail || undefined })
     }).then(json);
   }
   function top(jeu, n, frais) {
@@ -53,7 +54,7 @@
     '.gz-f button{padding:7px 12px;border-radius:4px;border:0;background:#F5A524;color:#0B1220;font:inherit;font-weight:600;cursor:pointer}' +
     '.gz-m{margin:6px 0;font-size:13px}.gz-m.err{color:#d9432f}' +
     '.gz-t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.gz-t td{padding:3px 6px;border-top:1px solid color-mix(in srgb,currentColor 15%,transparent)}' +
-    '.gz-t td:first-child{width:2.2em;opacity:.6}.gz-t td:last-child{text-align:right}.gz-t tr.moi td{background:rgba(245,165,36,.22);font-weight:700}';
+    '.gz-t small{opacity:.6;margin-left:6px}.gz-t td:first-child{width:2.2em;opacity:.6}.gz-t td:last-child{text-align:right}.gz-t tr.moi td{background:rgba(245,165,36,.22);font-weight:700}';
   function styles() {
     if (document.getElementById('gz-css')) return;
     var s = document.createElement('style'); s.id = 'gz-css'; s.textContent = CSS; document.head.appendChild(s);
@@ -63,12 +64,12 @@
     if (!scores.length) return '<p class="gz-m">Aucun score pour l’instant.</p>';
     return '<table class="gz-t">' + scores.map(function (s, i) {
       var c = moi && s.nom.toLowerCase() === moi.toLowerCase() ? ' class="moi"' : '';
-      return '<tr' + c + '><td>' + (i + 1) + '</td><td>' + esc(s.nom) + '</td><td>' + fmt(s.score) + '</td></tr>';
+      return '<tr' + c + '><td>' + (i + 1) + '</td><td>' + esc(s.nom) + (s.detail ? '<small>' + esc(s.detail) + '</small>' : '') + '</td><td>' + fmt(s.score) + '</td></tr>';
     }).join('') + '</table>';
   }
 
   // Panneau de fin de partie : demande le pseudo si besoin, envoie le score, affiche le top 10.
-  function panneau(el, jeu, score) {
+  function panneau(el, jeu, score, detail) {
     styles();
     el.innerHTML = '<div class="gz-p"><h4>Classement</h4><div class="gz-c"></div><div class="gz-l"></div></div>';
     var zone = el.querySelector('.gz-c'), liste = el.querySelector('.gz-l');
@@ -78,7 +79,7 @@
     }
     function soumettre(pseudo) {
       zone.innerHTML = '<p class="gz-m">Envoi du score…</p>';
-      envoyer(jeu, score, pseudo).then(function (r) {
+      envoyer(jeu, score, pseudo, detail).then(function (r) {
         zone.innerHTML = '<p class="gz-m">' + esc(r.nom) + ' : ' + (r.record ? 'nouveau record, ' : 'meilleur score ' + fmt(r.meilleur) + ', ') +
           r.rang + '<sup>e</sup> sur ' + r.total + '</p>';
         afficherTop(true);

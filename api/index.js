@@ -1,7 +1,8 @@
 // API des scores gamzu.fr — Cloud Run (projet gamzu-fr) + Firestore.
 //   GET  /scores?jeu=fz&n=10            → top n (un score par joueur : son meilleur)
-//   POST /scores {jeu, nom, score}      → enregistre, renvoie rang et meilleur score
-// Stockage : jeux/{jeu}/joueurs/{nom en minuscules} = {nom, score, parties, date}
+//   POST /scores {jeu, nom, score, detail?} → enregistre, renvoie rang et meilleur score
+// Stockage : jeux/{jeu}/joueurs/{nom en minuscules} = {nom, score, detail, parties, date}
+// detail : court texte affiché à côté du score (palier atteint dans Terraforme).
 const http = require('http');
 const { Firestore, FieldValue } = require('@google-cloud/firestore');
 
@@ -10,8 +11,8 @@ const db = new Firestore();
 // Jeux acceptés et plafond de score plausible pour chacun.
 const JEUX = {
   fz: { nom: 'Front Zéro', max: 5_000_000 },
-  gxf: { nom: 'Guerre X Force', max: 1_000_000 },
-  tf: { nom: 'Terraforme', max: 1_000_000 },
+  gxf: { nom: 'Guerre X Force', max: 40_000 },      // mode Combat : XP + bonus de victoire
+  tf: { nom: 'Terraforme', max: 50_000_000 },       // indice de terraformation
 };
 
 const ORIGINES = /^https:\/\/([a-z0-9-]+\.)?gamzu\.fr$|^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
@@ -33,22 +34,27 @@ function nettoyerNom(n) {
   n = n.normalize('NFC').replace(/[^\p{L}\p{N} _.\-]/gu, '').replace(/\s+/g, ' ').trim();
   return n.length >= 2 && n.length <= 16 ? n : null;
 }
+function nettoyerDetail(d) {
+  if (typeof d !== 'string') return null;
+  d = d.normalize('NFC').replace(/[^\p{L}\p{N} '’,.:\-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  return d || null;
+}
 const cleNom = n => n.toLowerCase().replace(/[\/\s.]/g, '_');
 
 const joueurs = jeu => db.collection('jeux').doc(jeu).collection('joueurs');
 
 async function top(jeu, n) {
   const snap = await joueurs(jeu).orderBy('score', 'desc').limit(n).get();
-  return snap.docs.map(d => { const x = d.data(); return { nom: x.nom, score: x.score, date: x.date.toDate().toISOString() }; });
+  return snap.docs.map(d => { const x = d.data(); return { nom: x.nom, score: x.score, detail: x.detail || null, date: x.date.toDate().toISOString() }; });
 }
 
-async function enregistrer(jeu, nom, score) {
+async function enregistrer(jeu, nom, score, detail) {
   const ref = joueurs(jeu).doc(cleNom(nom));
   const { meilleur, record } = await db.runTransaction(async tx => {
     const doc = await tx.get(ref);
     const avant = doc.exists ? doc.data().score : -1;
     if (score > avant) {
-      tx.set(ref, { nom, score, date: FieldValue.serverTimestamp(), parties: FieldValue.increment(1) }, { merge: true });
+      tx.set(ref, { nom, score, detail, date: FieldValue.serverTimestamp(), parties: FieldValue.increment(1) }, { merge: true });
       return { meilleur: score, record: true };
     }
     tx.update(ref, { parties: FieldValue.increment(1) });
@@ -100,11 +106,11 @@ http.createServer(async (req, res) => {
       const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
       if (tropDEnvois(ip)) return repondre(res, 429, { erreur: 'trop d’envois, réessaie plus tard' });
       const b = await lireCorps(req);
-      const jeu = b.jeu, nom = nettoyerNom(b.nom), score = b.score;
+      const jeu = b.jeu, nom = nettoyerNom(b.nom), score = b.score, detail = nettoyerDetail(b.detail);
       if (!JEUX[jeu]) return repondre(res, 400, { erreur: 'jeu inconnu' });
       if (!nom) return repondre(res, 400, { erreur: 'pseudo invalide (2 à 16 caractères)' });
       if (!Number.isInteger(score) || score < 0 || score > JEUX[jeu].max) return repondre(res, 400, { erreur: 'score invalide' });
-      return repondre(res, 200, { jeu, nom, ...(await enregistrer(jeu, nom, score)) });
+      return repondre(res, 200, { jeu, nom, ...(await enregistrer(jeu, nom, score, detail)) });
     }
     if (url.pathname === '/') return repondre(res, 200, { ok: true, jeux: Object.keys(JEUX) });
     repondre(res, 404, { erreur: 'introuvable' });

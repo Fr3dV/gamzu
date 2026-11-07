@@ -81,7 +81,7 @@ a{color:#F5A524}a:hover{color:#FFC35C}
 <div style="position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-bottom: 1px solid #1E2A3D">
 <img loading="lazy" width="1200" height="617" src="assets/guerre-x-force.jpg" alt="Guerre X Force en vol : un Rafale en virage au-dessus de crêtes enneigées, instruments de bord en bas" style="width: 100%; height: 100%; object-fit: cover; display: block">
 <span style="position: absolute; top: 14px; left: 14px; background: rgba(11,18,32,0.85); color: #F5A524; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.1em; padding: 6px 10px">GXF · 02</span>
-<span style="position: absolute; top: 14px; right: 14px; background: #F5A524; color: #0B1220; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; padding: 6px 10px">V80</span>
+<span style="position: absolute; top: 14px; right: 14px; background: #F5A524; color: #0B1220; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; padding: 6px 10px">V82</span>
 </div>
 <div style="padding: 28px; display: flex; flex-direction: column; gap: 20px; flex-grow: 1">
 <div style="display: flex; flex-direction: column; gap: 8px">
@@ -182,16 +182,19 @@ a{color:#F5A524}a:hover{color:#FFC35C}
 </div>
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 28px">
 <div style="background: #0F1829; border: 1px solid #1E2A3D; padding: 24px">
-<h3 style="margin: 0 0 12px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; text-transform: uppercase">Front Zéro</h3>
+<h3 style="margin: 0 0 4px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; text-transform: uppercase">Front Zéro</h3>
+<p style="margin: 0 0 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #8A97A8">Score de la partie</p>
 <div class="gz-top" data-jeu="fz" style="font-size: 15px; color: #C9D3DF">Chargement…</div>
 </div>
 <div style="background: #0F1829; border: 1px solid #1E2A3D; padding: 24px">
-<h3 style="margin: 0 0 12px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; text-transform: uppercase">Guerre X Force</h3>
-<p style="margin: 0; font-size: 15px; color: #8A97A8">Classement bientôt.</p>
+<h3 style="margin: 0 0 4px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; text-transform: uppercase">Guerre X Force</h3>
+<p style="margin: 0 0 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #8A97A8">Mode Combat · points</p>
+<div class="gz-top" data-jeu="gxf" style="font-size: 15px; color: #C9D3DF">Chargement…</div>
 </div>
 <div style="background: #0F1829; border: 1px solid #1E2A3D; padding: 24px">
-<h3 style="margin: 0 0 12px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; text-transform: uppercase">Terraforme</h3>
-<p style="margin: 0; font-size: 15px; color: #8A97A8">Classement bientôt.</p>
+<h3 style="margin: 0 0 4px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; text-transform: uppercase">Terraforme</h3>
+<p style="margin: 0 0 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #8A97A8">Indice de terraformation</p>
+<div class="gz-top" data-jeu="tf" style="font-size: 15px; color: #C9D3DF">Chargement…</div>
 </div>
 </div>
 </section>
@@ -214,7 +217,7 @@ a{color:#F5A524}a:hover{color:#FFC35C}
   var css = document.createElement('style');
   css.textContent = '.gz-t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.gz-t td{padding:6px 4px;border-top:1px solid #1E2A3D}' +
     '.gz-t td:first-child{width:2em;color:#8A97A8;font-family:"JetBrains Mono",monospace;font-size:13px}.gz-t td:last-child{text-align:right;font-family:"JetBrains Mono",monospace}' +
-    '.gz-t tr.moi td{color:#F5A524}.gz-m{margin:0;color:#8A97A8}';
+    '.gz-t small{margin-left:8px;color:#8A97A8;font-size:12px}.gz-t tr.moi td{color:#F5A524}.gz-m{margin:0;color:#8A97A8}';
   document.head.appendChild(css);
   function afficher() {
     document.querySelectorAll('.gz-top').forEach(function (el) {
