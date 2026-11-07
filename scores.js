@@ -5,7 +5,7 @@
  *   Gamzu.nom()                      → pseudo enregistré ou null
  *   Gamzu.setNom(n)                  → enregistre le pseudo
  *   Gamzu.envoyer(jeu, score)        → Promise {rang, total, meilleur, record}
- *   Gamzu.top(jeu, n)                → Promise [{nom, score, date}]
+ *   Gamzu.top(jeu, n, frais)         → Promise [{nom, score, date}] (frais : sans cache)
  *   Gamzu.panneau(el, jeu, score)    → affiche dans el : saisie du pseudo, envoi, top 10
  */
 (function () {
@@ -38,8 +38,8 @@
       body: JSON.stringify({ jeu: jeu, nom: pseudo || nom(), score: Math.round(score) })
     }).then(json);
   }
-  function top(jeu, n) {
-    return fetch(API + '/scores?jeu=' + encodeURIComponent(jeu) + '&n=' + (n || 10)).then(json)
+  function top(jeu, n, frais) {
+    return fetch(API + '/scores?jeu=' + encodeURIComponent(jeu) + '&n=' + (n || 10), frais ? { cache: 'no-store' } : {}).then(json)
       .then(function (b) { return b.scores; });
   }
 
@@ -72,8 +72,8 @@
     styles();
     el.innerHTML = '<div class="gz-p"><h4>Classement</h4><div class="gz-c"></div><div class="gz-l"></div></div>';
     var zone = el.querySelector('.gz-c'), liste = el.querySelector('.gz-l');
-    function afficherTop() {
-      top(jeu, 10).then(function (s) { liste.innerHTML = tableau(s, nom()); })
+    function afficherTop(frais) {
+      top(jeu, 10, frais).then(function (s) { liste.innerHTML = tableau(s, nom()); })
         .catch(function () { liste.innerHTML = '<p class="gz-m err">Classement indisponible.</p>'; });
     }
     function soumettre(pseudo) {
@@ -81,7 +81,7 @@
       envoyer(jeu, score, pseudo).then(function (r) {
         zone.innerHTML = '<p class="gz-m">' + esc(r.nom) + ' : ' + (r.record ? 'nouveau record, ' : 'meilleur score ' + fmt(r.meilleur) + ', ') +
           r.rang + '<sup>e</sup> sur ' + r.total + '</p>';
-        afficherTop();
+        afficherTop(true);
       }).catch(function (e) { formulaire(e.message); });
     }
     function formulaire(erreur) {
