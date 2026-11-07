@@ -28,6 +28,7 @@ a{color:#F5A524}a:hover{color:#FFC35C}
 </a>
 <nav aria-label="Navigation principale" style="display: flex; flex-wrap: wrap; gap: 28px; font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase">
 <a href="#jeux" style="color: #E6EDF5; text-decoration: none">Jeux</a>
+<a href="#classement" style="color: #8A97A8; text-decoration: none">Classement</a>
 <a href="#apropos" style="color: #8A97A8; text-decoration: none">À propos</a>
 </nav>
 </header>
@@ -139,6 +140,32 @@ a{color:#F5A524}a:hover{color:#FFC35C}
 </div>
 </section>
 
+<section id="classement" style="padding-bottom: 96px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px">
+<h2 style="margin: 0; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 22px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A97A8">Classement</h2>
+<form id="gz-pseudo" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<label for="gz-nom" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #8A97A8">Ton pseudo</label>
+<input id="gz-nom" maxlength="16" minlength="2" required placeholder="pour tous les jeux" style="width: 180px; padding: 9px 12px; background: #0F1829; border: 1px solid #2A3A52; color: #E6EDF5; font: inherit; font-size: 15px">
+<button style="padding: 9px 16px; background: #F5A524; color: #0B1220; border: 0; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer">OK</button>
+<span id="gz-ok" style="font-size: 13px; color: #8A97A8"></span>
+</form>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 28px">
+<div style="background: #0F1829; border: 1px solid #1E2A3D; padding: 24px">
+<h3 style="margin: 0 0 12px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; text-transform: uppercase">Front Zéro</h3>
+<div class="gz-top" data-jeu="fz" style="font-size: 15px; color: #C9D3DF">Chargement…</div>
+</div>
+<div style="background: #0F1829; border: 1px solid #1E2A3D; padding: 24px">
+<h3 style="margin: 0 0 12px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; text-transform: uppercase">Guerre X Force</h3>
+<p style="margin: 0; font-size: 15px; color: #8A97A8">Classement bientôt.</p>
+</div>
+<div style="background: #0F1829; border: 1px solid #1E2A3D; padding: 24px">
+<h3 style="margin: 0 0 12px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; text-transform: uppercase">Terraforme</h3>
+<p style="margin: 0; font-size: 15px; color: #8A97A8">Classement bientôt.</p>
+</div>
+</div>
+</section>
+
 <footer id="apropos" style="border-top: 1px solid #1E2A3D; padding: 32px 0 48px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #8A97A8">
 <span>gamzu.fr · jeux faits maison, jouables dans le navigateur</span>
 <span>© 2026</span>
@@ -146,5 +173,27 @@ a{color:#F5A524}a:hover{color:#FFC35C}
 
 </div>
 </div>
+<script src="scores.js"></script>
+<script>
+(function () {
+  var champ = document.getElementById('gz-nom'), ok = document.getElementById('gz-ok');
+  champ.value = Gamzu.nom() || '';
+  document.getElementById('gz-pseudo').addEventListener('submit', function (e) {
+    e.preventDefault(); Gamzu.setNom(champ.value); ok.textContent = 'Enregistré pour tous les jeux'; afficher();
+  });
+  var css = document.createElement('style');
+  css.textContent = '.gz-t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.gz-t td{padding:6px 4px;border-top:1px solid #1E2A3D}' +
+    '.gz-t td:first-child{width:2em;color:#8A97A8;font-family:"JetBrains Mono",monospace;font-size:13px}.gz-t td:last-child{text-align:right;font-family:"JetBrains Mono",monospace}' +
+    '.gz-t tr.moi td{color:#F5A524}.gz-m{margin:0;color:#8A97A8}';
+  document.head.appendChild(css);
+  function afficher() {
+    document.querySelectorAll('.gz-top').forEach(function (el) {
+      Gamzu.top(el.dataset.jeu, 10).then(function (s) { el.innerHTML = Gamzu.tableau(s, Gamzu.nom()); })
+        .catch(function () { el.innerHTML = '<p class="gz-m">Classement indisponible.</p>'; });
+    });
+  }
+  afficher();
+})();
+</script>
 </body>
 </html>
