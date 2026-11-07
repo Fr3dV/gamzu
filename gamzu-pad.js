@@ -18,6 +18,7 @@
  * Dans un menu : croix ou stick gauche pour se déplacer, A ou START pour valider, B pour revenir.
  * Un élément marqué data-pad="non" est ignoré par la navigation (ex. bouton qui ouvre un confirm()).
  * Les boutons désactivés restent atteignables (pour lire la carte qui les contient) mais A n’y fait rien.
+ * SELECT maintenu ~0,7 s : ouvre/ferme le menu gamzu.fr (gamzu-menu.js, s’il est chargé), prioritaire sur le menu du jeu.
  */
 (function () {
   if (window.GamzuPad) return;
@@ -27,7 +28,7 @@
   var prec = {};           // état précédent des boutons
   var tenus = {};          // codes clavier actuellement simulés
   var nav = { dir: null, t: 0, rep: false };
-  var focus = null, focusPos = null, dernierMenu = null, aideVue = false, boucle = false;
+  var focus = null, focusPos = null, dernierMenu = null, aideVue = false, boucle = false, selectT = 0;
   var axes = { lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0 };
   var api = { axes: axes, actif: false, init: init, vibrer: vibrer };
   window.GamzuPad = api;
@@ -102,17 +103,23 @@
     }
     if (bouge) setActif(true);
 
-    var menu = opts.menu ? opts.menu() : null;
+    // Appui long sur SELECT → menu gamzu.fr
+    var gm = window.GamzuMenu;
+    if (prec.SELECT) { if (!selectT) selectT = now; else if (selectT > 0 && now - selectT > 700) { selectT = -1; if (gm) { gm.basculer(); vibrer(60, 0.4); } } }
+    else selectT = 0;
+    var menuGz = gm && gm.element;
+    var menu = menuGz || (opts.menu ? opts.menu() : null);
     if (menu !== dernierMenu) { toutRelacher(); dernierMenu = menu; focusPos = null; poserFocus(menu ? premier(menu) : null); }
     else if (menu && focus && !focus.isConnected) poserFocus(proche(menu)); // le menu a été redessiné
 
     for (var n in appuis) {
       var bas = appuis[n];
-      if (menu && opts.toujours.indexOf(n) < 0) {
+      if (menu && (menuGz || opts.toujours.indexOf(n) < 0)) {
         if (!bas) continue;
         if (n === 'A' || n === 'START') { if (!focus || !valide(focus, menu)) poserFocus(premier(menu)); if (focus && !focus.disabled) focus.click(); }
         else if (n === 'B') {
-          if (opts.retour) opts.retour();
+          if (menuGz) gm.fermer();
+          else if (opts.retour) opts.retour();
           else { simuler('Escape', true); simuler('Escape', false); }
         }
         continue;
