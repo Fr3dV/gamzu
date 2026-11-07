@@ -13,6 +13,7 @@ const JEUX = {
   fz: { nom: 'Front Zéro', max: 5_000_000 },
   gxf: { nom: 'Guerre X Force', max: 40_000 },      // mode Combat : XP + bonus de victoire
   tf: { nom: 'Terraforme', max: 50_000_000 },       // indice de terraformation
+  cnt: { nom: 'Chasse-Neige Tycoon', max: 500_000_000 }, // total d'euros gagnés
 };
 
 const ORIGINES = /^https:\/\/([a-z0-9-]+\.)?gamzu\.fr$|^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
