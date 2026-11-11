@@ -2,6 +2,7 @@
  * ou passer à un autre jeu. À charger dans chaque jeu (n'importe où, de préférence en fin de <body>) :
  *   <script src="https://gamzu.fr/gamzu-menu.js" data-position="haut-gauche"></script>
  * data-position : haut-gauche (défaut) · haut-centre · haut-droite · bas-gauche · bas-centre · bas-droite
+ * data-jeu : code du jeu courant (ex. "mz"), à préciser seulement si le jeu n'est pas servi depuis <code>.gamzu.fr.
  * Le bouton se cache pendant le verrouillage de la souris (jeux à la première personne).
  * window.GamzuMenu.ouvrir() / .fermer() / .basculer() pour l'ouvrir depuis le jeu (ex. bouton manette).
  */
@@ -13,11 +14,14 @@
     ['gxf', 'Guerre X Force'],
     ['tf', 'Terraforme'],
     ['cnt', 'Chasse-Neige Tycoon'],
-    ['lgc', 'La Grande Chasse']
+    ['lgc', 'La Grande Chasse'],
+    // 3e élément facultatif = adresse complète, pour un jeu qui n'est pas (encore) sur <code>.gamzu.fr.
+    // Mission Zéro : adresse provisoire en attendant mz.gamzu.fr.
+    ['mz', 'Mission Zéro', 'https://mission-zero-386737191383.europe-west1.run.app/']
   ];
   var script = document.currentScript;
   var pos = (script && script.getAttribute('data-position')) || 'haut-gauche';
-  var ici = location.hostname.split('.')[0];
+  var ici = (script && script.getAttribute('data-jeu')) || location.hostname.split('.')[0];
 
   var css =
     '#gzm{position:fixed;z-index:2147483646;font:600 14px/1.3 system-ui,sans-serif;color:#fff}' +
@@ -51,7 +55,7 @@
     racine.className = pos;
     var liens = '<a class="portail" href="' + PORTAIL + '">← Tous les jeux · gamzu.fr</a><small>Autres jeux</small>';
     JEUX.forEach(function (j) {
-      if (j[0] !== ici) liens += '<a href="https://' + j[0] + '.gamzu.fr/">' + j[1] + '</a>';
+      if (j[0] !== ici) liens += '<a href="' + (j[2] || 'https://' + j[0] + '.gamzu.fr/') + '">' + j[1] + '</a>';
     });
     racine.innerHTML = '<button type="button" aria-haspopup="true" aria-expanded="false" title="Menu gamzu.fr">☰ <b>gamzu</b></button>' +
       '<nav aria-label="Jeux gamzu.fr">' + liens + '</nav>';
